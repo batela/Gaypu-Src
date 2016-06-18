@@ -156,6 +156,10 @@ bool Explorador::Abrir ( ){
 }
 
 bool Explorador::Cerrar ( ){
-	return (true);
+  if (this->getPuerto()->getIsOpen()== true) {
+        this->getPuerto()->cerrar();
+        this->getPuerto()->setIsOpen(false);
+  }
+  return (true);
 }
 } /* namespace container */

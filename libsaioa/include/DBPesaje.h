@@ -19,6 +19,7 @@ public:
 	int ReadHistoricData (string startdate, string enddate,string &data);
 	int ReadMaxDayData (string startdate, string enddate,string limit, string &data);
 	int ReadLastTenData (string &data);
+	int InsertNewCodigoPesaje (string data);
 	int InsertData (int canal,float valor);
 };
 

@@ -80,6 +80,8 @@ void service_resource::render_GET(const http_request &req, http_response** res)
   	  this->getDBMaxDayData(queryitems.find("startdate")->second,queryitems.find("enddate")->second,queryitems.find("count")->second,response);
   else if(operation.compare("ultimo") == 0)
   	  this->getLastData(response);
+  else if(operation.compare("pesaje") == 0)
+        this->setCodigoPesaje(queryitems.find("codigo")->second);
   else if(operation.compare("ultimosdiez") == 0)
     	this->getLastTenData(response);
   else if(operation.compare("reiniciar") == 0)
@@ -208,6 +210,17 @@ void service_resource::getLastTenData(string &data)
 	std::cout << "getLastTenData start:" << std::endl;
 	if (db->ReadLastTenData(data) != 0) db->Close();
 }
+
+void service_resource::setCodigoPesaje(string &data)
+{
+  std::cout << "getLastTenData start:" << std::endl;
+  DBPesaje db("/home/batela/bascula/db/kemen.db");
+  db.Open();
+  if (db.InsertNewCodigoPesaje(data) != 0) db.Close();
+  db.Close();
+}
+
+
 
 /**
  * http://192.168.24.109:9898/service?op=grafica

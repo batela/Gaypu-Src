@@ -209,6 +209,7 @@ int  MODBUSExplorador::LeerRegistros(int kc,int codigo, Enlace *enlace)
     inicio = atoi (enlace->getItemCfg(cfItem,kini).data());
     bytes = atoi (enlace->getItemCfg(cfItem,kcou).data());
     log.debug("%s: %s %d %d %d",__FILE__, "Lanzando lectura ModBUS:", codigo,inicio,bytes);
+    memset (buffer,0,256);
     if (((MODBUSPuerto*)getPuerto())->leer(codigo,inicio,bytes,buffer) <= 0){
       enlace->trataError();
     }

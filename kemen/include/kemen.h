@@ -26,9 +26,11 @@
 #include "MODBUSExplorador.h"
 #include "DBPesaje.h"
 #include "DX80Enlace.h"
+
 using namespace std;
 using namespace container;
 //enum ESTADO {LOCK_ABIERTO, LOCK_CERRADO, PESADO, ATRAPADO, SUBIENDO, SOLTADO,ERROR,ESPERA_ABRIR,FIN };
 enum ESTADO {ESPERA_CARRO_ENVIA,ESPERA_PALPADORES_NO_APOYO,ESPERA_SOLTAR };
+enum ESTADO_PESADA {NO_DEFINIDO,REPOSO,SUBIENDO,PESANDO,BAJANDO };
 
 #endif /* KEMEN_H_ */

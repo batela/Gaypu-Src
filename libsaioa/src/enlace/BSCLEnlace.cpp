@@ -26,57 +26,57 @@ void BSCLEnlace::Configure(string a , string b) {
 	margenPesaje 		= atoi(b.data());
 }
 
-int BSCLEnlace::analizaTrama(char *buffer){
-	int res = -1;
-	char peso[10];
-	if (VerificaTrama(buffer) == 0){
-		memset (peso,0,10);
-		memcpy (peso, &buffer[3],5);
-		completaBSCL(atoi(peso),buffer[2],this->bascula);
-	}
-	else {
-		log.error("%s: %s",__FILE__, "Trama Bascula incorrecta");
-	}
-	return res;
-}
+//int BSCLEnlace::analizaTrama(char *buffer){
+//	int res = -1;
+//	char peso[10];
+//	if (VerificaTrama(buffer) == 0){
+//		memset (peso,0,10);
+//		memcpy (peso, &buffer[3],5);
+////		completaBSCL(atoi(peso),buffer[2],this->bascula);
+//	}
+//	else {
+//		log.error("%s: %s",__FILE__, "Trama Bascula incorrecta");
+//	}
+//	return res;
+//}
+//
+//int BSCLEnlace::VerificaTrama (char *buffer)
+//{
+//	int res = 0 ;
+//	//log.info("%s: %s",__FILE__, "Comenzando funcion..");
+//	if ((buffer[0] != 0x02) || strlen(buffer) != 9 || (buffer[8] != 0x03)) {
+//		log.warn("%s: %s",__FILE__, "Trama recibida erronea");
+//		res = 1;
+//	}
+//	//log.info("%s: %s",__FILE__, "Terminando funcion!!");
+//	return res;
+//}
 
-int BSCLEnlace::VerificaTrama (char *buffer)
-{
-	int res = 0 ;
-	//log.info("%s: %s",__FILE__, "Comenzando funcion..");
-	if ((buffer[0] != 0x02) || strlen(buffer) != 9 || (buffer[8] != 0x03)) {
-		log.warn("%s: %s",__FILE__, "Trama recibida erronea");
-		res = 1;
-	}
-	//log.info("%s: %s",__FILE__, "Terminando funcion!!");
-	return res;
-}
-
-int BSCLEnlace::completaBSCL (int peso, char signo, Bascula &bsc){
-	log.debug("%s: %s",__FILE__, "Comenzando funcion.. completar bascula");
-	static int ultimoPeso = 0 ;
-	if (peso != ultimoPeso){
-		log.info("%s: %s %c%d",__FILE__, "***************Actualiza bascula: " , signo,peso);
-		bsc.Actualiza(peso,signo);
-		ultimoPeso = peso;
-	}
-
-	log.debug("%s: %s",__FILE__, "Terminando funcion!!");
-	return 0;
-}
-
-int BSCLEnlace::completaBSCL (vector<std::string> items, Bascula &bsc){
-	log.debug("%s: %s",__FILE__, "Comenzando funcion.. completar bascula");
-	static int ultimoPeso = 0 ;
-	int peso = atoi(items[2].data());
-	if (peso != ultimoPeso){
-
-		bsc.Actualiza(peso,items[0].at(0));
-	}
-
-	log.debug("%s: %s",__FILE__, "Terminando funcion!!");
-	return 0;
-}
+//int BSCLEnlace::completaBSCL (int peso, char signo, Bascula &bsc){
+//	log.debug("%s: %s",__FILE__, "Comenzando funcion.. completar bascula");
+//	static int ultimoPeso = 0 ;
+//	if (peso != ultimoPeso){
+//		log.info("%s: %s %c%d",__FILE__, "***************Actualiza bascula: " , signo,peso);
+//		bsc.Actualiza(peso,signo);
+//		ultimoPeso = peso;
+//	}
+//
+//	log.debug("%s: %s",__FILE__, "Terminando funcion!!");
+//	return 0;
+//}
+//
+//int BSCLEnlace::completaBSCL (vector<std::string> items, Bascula &bsc){
+//	log.debug("%s: %s",__FILE__, "Comenzando funcion.. completar bascula");
+//	static int ultimoPeso = 0 ;
+//	int peso = atoi(items[2].data());
+//	if (peso != ultimoPeso){
+//
+//		bsc.Actualiza(peso,items[0].at(0));
+//	}
+//
+//	log.debug("%s: %s",__FILE__, "Terminando funcion!!");
+//	return 0;
+//}
 /*
 int BSCLEnlace::completaBSCL (vector<std::string> items, Bascula &bsc){
 	log.debug("%s: %s",__FILE__, "Comenzando funcion.. completar bascula");
