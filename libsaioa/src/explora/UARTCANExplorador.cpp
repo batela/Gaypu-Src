@@ -48,30 +48,45 @@ extern log4cpp::Category &log;
     this->enlace = (IQANEnlace *)e;
 
     thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+    lTX = 0;
+    lRX = 0;
+    isFalloCom = true;
     Abrir();
   }
 
+  /***
+   *
+   */
+  UARTCANExplorador::~UARTCANExplorador()
+  {
+  }
+  /**
+   *
+   */
   UARTCANExplorador::UARTCANExplorador(Enlace* e, Puerto* p,string file) : Explorador (e,p,false){
-       estado = PRE_INIT;
-       thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+     estado = PRE_INIT;
+     thread_mutex = PTHREAD_MUTEX_INITIALIZER;
+     cfg = NULL;
+     lTX = 0;
+     lRX = 0;
+     isFalloCom = true;
+
+     this->enlace =  (IQANEnlace *) e;
+     Abrir(); //Esta funcion abre el puerto
+
+     int lanzar = 0 ;
+     if (ConfigReadFile(file.data(), &cfg) != CONFIG_OK) {
+       log.error("%s: %s %s",__FILE__, "Error leyendo fichero de confguracion: ", file.data());
        cfg = NULL;
-
-       this->enlace =  (IQANEnlace *) e;
-       Abrir(); //Esta funcion abre el puerto
-
-       int lanzar = 0 ;
-       if (ConfigReadFile(file.data(), &cfg) != CONFIG_OK) {
-         log.error("%s: %s %s",__FILE__, "Error leyendo fichero de confguracion: ", file.data());
-         cfg = NULL;
+     }
+     else {
+       ConfigReadInt(cfg,"general","lanzar",&lanzar,0);
+       if (lanzar >0) {
+         this->sigue= true ;
+         LanzarExplorador();
        }
-       else {
-         ConfigReadInt(cfg,"general","lanzar",&lanzar,0);
-         if (lanzar >0) {
-           this->sigue= true ;
-           LanzarExplorador();
-         }
-       }
-       Configura();
+     }
+     Configura();
   }
 /**
  *
@@ -81,7 +96,10 @@ extern log4cpp::Category &log;
     estado = PRE_INIT;
     thread_mutex = PTHREAD_MUTEX_INITIALIZER;
     cfg = NULL;
-    printf ("Lamo a abrir\n");
+    lTX = 0;
+    lRX = 0;
+    isFalloCom = true;
+
     Abrir(); //Esta funcion abre el puerto
     this->enlace = (IQANEnlace *) e[0];
     int lanzar = 0 ;
@@ -98,11 +116,7 @@ extern log4cpp::Category &log;
     }
     Configura();
   }
-/***
- *
- */
-  UARTCANExplorador::~UARTCANExplorador() {
-  }
+
 /**
  *
  */
@@ -126,6 +140,7 @@ extern log4cpp::Category &log;
 
 
   }
+
 /***
  * Esta funcion explora un solo equipo que bien tiene una configuración predefinida o tiene
  * un fichero de configuracion, tenderá a desaparcer.
@@ -135,24 +150,41 @@ extern log4cpp::Category &log;
     log.debug("%s: %s",__FILE__, "Comienza exploracion UARTCAN");
     int res = 1 ;
     //ResetBuffers();
-    switch (estado){
-      case PRE_INIT:
-        noop;
-      break;
-      case IDLE:
-        lRX = this->getPuerto()->leer(bufferRX);
-        res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
-        res  = 0 ; //FIXME Btl
-      break;
-      case WAIT_RESPONSE:
-        lRX = this->getPuerto()->leer(bufferRX);
-        res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
-        estado = IDLE;
-      break;
-      case SEND_DATA:
-        this->getPuerto()->escribir(bufferTX,lTX);
-        estado = WAIT_RESPONSE;
-      break;
+    bool done = false ;
+
+    while (done == false){
+      switch (estado){
+        case PRE_INIT:
+          printf ("PRE_INIT\n");
+          noop;
+          done = true;
+        break;
+        case IDLE:
+          printf ("IDLE\n");
+          lRX = this->getPuerto()->leer(bufferRX);
+          res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
+          ActualizaEstadoCom (res);
+
+          done = true;
+        break;
+        case WAIT_RESPONSE:
+          printf ("WAIT_RESPONSE\n");
+          lRX = this->getPuerto()->leer(bufferRX);
+          res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
+          estado = IDLE;
+          done = true;
+        break;
+        case SEND_DATA:
+          printf ("SEND_DATA\n");
+          this->getPuerto()->escribir(bufferTX,lTX);
+          estado = WAIT_RESPONSE;
+          done = false; //pasamos seguido a esperar la respuesta
+        break;
+        default:
+          printf("ESTADO NO DEFINIDO\n");
+          done = true;
+        break;
+      }
     }
     log.debug("%s: %s",__FILE__, "Termina exploracion UARTCAN");
     return res;
@@ -169,6 +201,28 @@ extern log4cpp::Category &log;
   /**
    *
    */
+//  void UARTCANExplorador::ActualizaEstadoCom(int res)
+//  {
+//    static int contadorFallos = 0 ;
+//    if (res != 0 ){
+//      if (contadorFallos++ < 3) {
+//        log.debug("%s: %s",__FILE__, "Incremento contador de Fallos !!!!!");
+//      }
+//      else {
+//        enlace->SetIsFalloCom(true);
+//        isFalloCom = true;
+//      }
+//    }
+//    else {
+//      contadorFallos = 0 ;
+//      enlace->SetIsFalloCom(false);
+//      isFalloCom = false ;
+//    }
+//    log.debug("%s: %s %d",__FILE__, "Estado de comunicaciones, isFalloCom: ", isFalloCom);
+//  }
+  /**
+   *
+   */
   int UARTCANExplorador::Configura (){
 
       log.debug("%s: %s",__FILE__, "Comienza configuracion UARTCAN");
@@ -177,9 +231,13 @@ extern log4cpp::Category &log;
       while (estado == PRE_INIT){
         Abrir();
         res = this->SendResetRequest();
+        ActualizaEstadoCom (res);
         if (res == 0){
-          res = this->SendRemoteRequest();
 
+          if ( (res = this->SendConfRequest()) == 0 )
+            res = this->SendRemoteRequest();
+
+          ActualizaEstadoCom (res);
         }
         if (res == 0)
           estado = IDLE;
@@ -194,20 +252,23 @@ extern log4cpp::Category &log;
       return res;
     }
 
-  int UARTCANExplorador::SendData (int lenght ,unsigned short * data, char * body){
+    int UARTCANExplorador::SendData (int lenght ,unsigned short *datasize, unsigned short * data, char * iqanobj){
 
-    log.debug("%s: %s",__FILE__, "Comienza Request Remote");
+      log.debug("%s: %s",__FILE__, "Comienza Request Remote");
 
-    int res = 1 ;
-    ResetBuffers();
-    //lTX = enlace.CreateDataFrame(lenght ,data, bufferTX);
-    if (lTX > 0){
-      estado = SEND_DATA;
+      int res = 1 ;
+      int code = 0;
+
+      ConfigReadInt(cfg,"iqancobid",iqanobj,&code,0);
+      ResetBuffers();
+      lTX = enlace->SendRecStandardCanFrame(code,lenght ,datasize,data, bufferTX);
+      if (lTX > 0){
+        estado = SEND_DATA;
+      }
+
+      log.debug("%s: %s",__FILE__, "Termina Request Remote");
+      return res;
     }
-
-    log.debug("%s: %s",__FILE__, "Termina Request Remote");
-    return res;
-  }
 
     /**
      * Devuelve 0 si OK
@@ -228,13 +289,10 @@ extern log4cpp::Category &log;
         if ((char)bufferRX[0] == 'U')
           res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
         else {
-
           log.warn("%s: %s",__FILE__, "Error al reset MCU");
           res = 1;
         }
-
       }
-
       log.debug("%s: %s",__FILE__, "Termina Reset MCU");
       return res;
     }
@@ -258,6 +316,29 @@ extern log4cpp::Category &log;
       }
 
       log.debug("%s: %s",__FILE__, "Termina Request Remote");
+      return res;
+    }
+
+    /**
+     *
+     */
+    int UARTCANExplorador::SendConfRequest(){
+
+      log.debug("%s: %s",__FILE__, "Comienza Configuration Request");
+
+      int res = 1 ;
+      char bufferTX[256];
+      char bufferRX[256];
+      int  lTX = 0;
+      lTX = enlace->CreateCANConfRequest(bufferTX);
+      log.debug ("%s: Lanzamos trama: >%s<  longitud: %d",__FILE__, bufferTX, lTX);
+      if (lTX > 0){
+        this->getPuerto()->escribir(bufferTX,lTX);
+        lRX = this->getPuerto()->leer(bufferRX);
+        res = enlace->analizaTrama(bufferRX, (char)bufferRX[0]);
+      }
+
+      log.debug("%s: %s",__FILE__, "Termina Comienza Configuration Request");
       return res;
     }
 } /* namespace container */

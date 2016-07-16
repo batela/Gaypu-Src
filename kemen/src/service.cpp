@@ -24,6 +24,7 @@
 #include <Bascula.h>
 #include <DB.h>
 #include <DX80.h>
+#include <IBERCOMPEnlace.h>
 #include <Env.h>
 #include <httpserver/http_request.hpp>
 #include <httpserver/http_response.hpp>
@@ -42,8 +43,11 @@
 bool verbose=true;
 using namespace std;
 using namespace std;
+extern bool pesando;
+extern bool pesajeHecho  ;
 extern BSCLEnlace *bscl;
-extern DX80Enlace *dx80;
+//extern DX80Enlace *dx80;
+extern IBERCOMPEnlace *dx80;
 extern vector<int> gPesos;
 extern vector<int> gPesosC1;
 extern vector<int> gPesosC2;
@@ -81,13 +85,19 @@ void service_resource::render_GET(const http_request &req, http_response** res)
   else if(operation.compare("ultimo") == 0)
   	  this->getLastData(response);
   else if(operation.compare("pesaje") == 0)
-        this->setCodigoPesaje(queryitems.find("codigo")->second);
+        this->setCodigoPesaje(queryitems.find("codigo")->second,response);
   else if(operation.compare("ultimosdiez") == 0)
     	this->getLastTenData(response);
   else if(operation.compare("reiniciar") == 0)
       this->reiniciar();
   else if(operation.compare("grafica") == 0)
       this->getGraficaData(response);
+  else if(operation.compare("calibrado") == 0)
+        this->getValoresCalibrado(response);
+  else if(operation.compare("setvalorescalibrado") == 0)
+          this->setValoresCalibrado(queryitems.find("tipo")->second, queryitems.find("valor")->second,response);
+
+
 
   else std::cout << "Operacion: " << req.get_arg("op") << " no localizada."<<"\n";
 
@@ -211,12 +221,16 @@ void service_resource::getLastTenData(string &data)
 	if (db->ReadLastTenData(data) != 0) db->Close();
 }
 
-void service_resource::setCodigoPesaje(string &data)
+void service_resource::setCodigoPesaje(string data, string &out)
 {
-  std::cout << "getLastTenData start:" << std::endl;
+  std::cout << "setCodigoPesaje start:" << std::endl;
   DBPesaje db("/home/batela/bascula/db/kemen.db");
   db.Open();
-  if (db.InsertNewCodigoPesaje(data) != 0) db.Close();
+  if (db.InsertNewCodigoPesaje(data) != 0){
+    db.Close();
+    out = "Result: OK";
+  }
+  else out = "Result: ERROR";
   db.Close();
 }
 
@@ -285,8 +299,10 @@ void service_resource::getLastData(string &data)
 	int isIOg0,isIOg1,isIOg2,isIOg3,isIOg4,isIOg5,isIOg6,isIOg7;
 	bscl->getBSCL()->GetGruaIO(isIOg0,isIOg1,isIOg2,isIOg3,isIOg4,isIOg5,isIOg6,isIOg7);
 
-	char okM = ((dx80->getDX()->getIsOKMaster()==true)?'F':'V');
-	char okR = ((dx80->getDX()->getIsOKRadio()==true)?'F':'V');
+	//char okM = ((dx80->getDX()->getIsOKMaster()==true)?'F':'V');
+	//char okR = ((dx80->getDX()->getIsOKRadio()==true)?'F':'V');
+	char okM = (bscl->getBSCL()->GetIsFalloCom() != true)?'F':'V';
+	char okR = (dx80->GetIsFalloCom()!=true)?'F':'V' ;
 	char okTW1 = ((dx80->getDX()->getIsOKInput1())==true)?'F':'V';
 	char okTW2 = ((dx80->getDX()->getIsOKInput2())==true)?'F':'V';
 	char okTW3 = ((dx80->getDX()->getIsOKInput3())==true)?'F':'V';
@@ -308,9 +324,39 @@ void service_resource::getLastData(string &data)
   char iog6 = ((isIOg6)==0)?'F':'V';
   char iog7 = ((isIOg7)==0)?'F':'V';
   char cal = 'R';
+
+  if (pesando == true && pesajeHecho == false) fijo = 'P';
+
 	sprintf(raw,"%d;%c;%c;%d;%s;%d;%d;%d;%d;%.0f;%.0f;%.0f;%.0f;%d;%d;%c;%c;%c;%c;%c;%c;%c;%c;%c;%d;%c;%c;%c;%c;%c;%c;%c;%c%c\n",1,fijo,'+',dx80->getDX()->getPeso(),now,isCarro,isPalpa,isTwisl,isSubir,dx80->getDX()->getPeso1(),dx80->getDX()->getPeso2(),dx80->getDX()->getPeso3(),dx80->getDX()->getPeso4(),cmX,cmY,okTW1,okTW2,okTW3,okTW4,okR,okEdad,'G','H',okM,pesoValido,iog0,iog1,iog2,iog3,iog4,iog5,iog6,iog7,cal);
 	data =  raw;
 	//std::cout << "Enviado: " << data << std::endl;
+}
+
+/**
+ * http://192.168.24.109:9898/service?op=calibrado
+ */
+void service_resource::getValoresCalibrado(string &data)
+{
+  char raw[256];
+
+  int input1 = (dx80->getDX()->getInput1() > 0)? dx80->getDX()->getInput1()  : (65535 + dx80->getDX()->getInput1()) ;
+  int input2 = (dx80->getDX()->getInput2() > 0)? dx80->getDX()->getInput2()  : (65535 + dx80->getDX()->getInput2()) ;
+  int input3 = (dx80->getDX()->getInput3() > 0)? dx80->getDX()->getInput3()  : (65535 + dx80->getDX()->getInput3()) ;
+  int input4 = (dx80->getDX()->getInput4() > 0)? dx80->getDX()->getInput4()  : (65535 + dx80->getDX()->getInput4()) ;
+
+  sprintf(raw,"OK;%d;%d;%d;%d\n",input1,input2,input3,input4);
+  data =  raw;
+
+}
+
+void service_resource::setValoresCalibrado(string tipo, string valor,string &data)
+{
+  std::cout << "setValoresCalibrado tipo:" << tipo << " valor " << valor << std::endl;
+
+  DBPesaje db("/home/batela/bascula/db/kemen.db");
+  db.Open();
+  //db.ReadMaxDayData(startdate,enddate,count,data);
+  db.Close();
 }
 
 /*

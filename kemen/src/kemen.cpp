@@ -25,7 +25,8 @@
 //extern bool verbose;
 
 BSCLEnlace *bscl = new BSCLEnlace (0,0);
-DX80Enlace *dx80 = new DX80Enlace ();
+//DX80Enlace *dx80 = new DX80Enlace ();
+IBERCOMPEnlace *dx80 = new IBERCOMPEnlace ();
 vector <Enlace*> mbEnlacesP1 ;
 vector <Enlace*> mbEnlacesP2 ;
 vector <Enlace*> mbEnlacesIQAN ;
@@ -34,6 +35,7 @@ extern log4cpp::Category &logger  = log4cpp::Category::getRoot();
 
 bool pesando      = false ;
 bool pesajeHecho  = false ;
+
 vector<int> gPesos(100,0);
 vector<int> gPesosC1(100,0);
 vector<int> gPesosC2(100,0);
@@ -79,6 +81,8 @@ void * PesaContainerRadio (void * enlace){
 
   DBPesaje db("/home/batela/bascula/db/kemen.db");
   int pesajesCorrectos = atoi(Env::getInstance()->GetValue("pesajescorrectos").data());
+  string idgrua = Env::getInstance()->GetValue("idgrua");
+
   int pesajes     = 0 ;
   float pesoMedio =0;
   int pesoMaximo  =0;
@@ -94,6 +98,18 @@ void * PesaContainerRadio (void * enlace){
   TOSEnlace *tos = new TOSEnlace ();
   RS232Puerto *tosPort = new RS232Puerto(Env::getInstance()->GetValue("puertocatos"), 9600);
   TOSExplorador *tosEx = new TOSExplorador (tos,tosPort,"/home/batela/bascula/cnf/tos.cnf");
+  int usaTOS = 0 ;
+//  int usaTOS = atoi(Env::getInstance()->GetValue("usatos").data());
+
+//  pesoMedio = 0;
+//  while (true){
+//     db.Open();
+//     db.InsertData(1,pesoMedio);
+//     db.Close();
+//     if (pesoMedio++ >= 10) pesoMedio = 0;
+//     sleep (1);
+////        //tosEx->EscribeTramaTOS(true,"MT02",pesoMedio);
+//  }
 
   while (true){
     tim.tv_nsec = 100 * 1000000L;
@@ -136,14 +152,14 @@ void * PesaContainerRadio (void * enlace){
       //Si el peso medido es inferior a pesominimo se entiende que es una operación
       // en vacio. No se guarda
       if (pesoMedio > pesoMinimo){
-        db.Open();
-        db.InsertData(1,pesoMedio);
-        db.Close();
-        tosEx->EscribeTramaTOS(true,"MT02",pesoMedio);
+         db.Open();
+         db.InsertData(1,pesoMedio);
+         db.Close();
+         if (usaTOS != 0)
+           tosEx->EscribeTramaTOS(true,idgrua,pesoMedio);
       }
     }
-    //Esperamos por defecto 100ms
-    nanosleep(&tim , &tim2);
+    nanosleep(&tim , &tim2); //Esperamos por defecto 100ms
   }
   return 0;
 }
@@ -292,7 +308,6 @@ void initializeIO(int &ioCarro, int &ioPalpa,int &ioTwisl,int &ioSubir,int &ioG0
  */
 int main(int argc, char **argv) {
 
-
   pthread_t idThLector;
 	pthread_t idThPesaje;
 	pthread_t idThAlmacenaPesada;
@@ -303,9 +318,9 @@ int main(int argc, char **argv) {
 	//logger4cpp::PropertyConfigurator::configure( Env::getInstance("/home/batela/bascula/cnf/bascula.cnf")->GetValue("loggerproperties") );
 	log4cpp::PropertyConfigurator::configure( Env::getInstance()->GetValue("logproperties") );
 
-
 	DBPesaje db("/home/batela/bascula/db/kemen.db");
 	logger.info("%s: %s",__FILE__, "Iniciando aplicacion de gruas...");
+
 
 	bscl->Configure(Env::getInstance()->GetValue("pesajescorrectos"), Env::getInstance()->GetValue("margenpesajes"));
 	//Configuramos el lecto IO
@@ -313,30 +328,21 @@ int main(int argc, char **argv) {
 	tim.tv_sec = 0;
 	tim.tv_nsec = atoi(Env::getInstance()->GetValue("ioperiod").data()) * 1000000L;
 
-	//initializeIO(ioCarro, ioPalpa,ioTwisl,ioSubir,ioG0,ioG1,ioG2,ioG3,ioG4,ioG5,ioG6,ioG7);
-
 	IQANEnlace *iqan = new IQANEnlace();
-
-	iqan->Configure("/home/batela/bascula/cnf/iqanexplora.cnf");
-	mbEnlacesIQAN.push_back(iqan);
-	UARTCANPuerto *iqanPort = new UARTCANPuerto (Env::getInstance()->GetValue("puertoiqan"),115200,8,0,1);
-	UARTCANExplorador *exIQAN = new UARTCANExplorador(iqan,iqanPort,"/home/batela/bascula/cnf/iqanexplora.cnf");
-
-//	while (true)
-//	{
-//	  exIQAN->Explora();
-//	}
-//
+  iqan->Configure("/home/batela/bascula/cnf/iqanexplora.cnf");
+  mbEnlacesIQAN.push_back(iqan);
+  UARTCANPuerto *iqanPort = new UARTCANPuerto (Env::getInstance()->GetValue("puertoiqan"),115200,8,0,1);
+  UARTCANExplorador *exIQAN = new UARTCANExplorador(iqan,iqanPort,"/home/batela/bascula/cnf/iqanexplora.cnf");
 
 	dx80->Configure("/home/batela/bascula/cnf/dx80modbus.cnf"); //Necesario par cargar parametros
   mbEnlacesP2.push_back(dx80);
   //mbEnlacesP2.push_back(io); //Solo pruebas con simulador
   MODBUSPuerto *dxPort = new MODBUSPuerto(Env::getInstance()->GetValue("puertodx80"), 9600);
   MODBUSExplorador  *exBSCL   = new MODBUSExplorador (mbEnlacesP2,dxPort,"/home/batela/bascula/cnf/dx80modbus.cnf");
-  pthread_create( &idThPesaje, NULL, PesaContainerRadio,dx80);
 
-	//Finalmente lanzamos el thread http
-	pthread_create( &idThLector, NULL, httpservermanager,NULL);
+	//Finalmente lanzamos el conjunto de threads
+  pthread_create( &idThPesaje, NULL, PesaContainerRadio,dx80);
+  pthread_create( &idThLector, NULL, httpservermanager,NULL);
   pthread_create( &idThAlmacenaPesada, NULL, AlmacenaPesada,dx80);
 
 //  pthread_create( &idThAlarmas, NULL, EvaluaAlarmas,exGarra);

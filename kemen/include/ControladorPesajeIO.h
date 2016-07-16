@@ -28,7 +28,7 @@ namespace container {
       virtual ~ControladorPesajeIO();
       friend void *identificaPesada( void *ptr );
       virtual void lanzarControlador();
-
+      void actualizaRemoto ();
       //inline bool isIniciado () {return seguir;}
       //inline ESTADO_PESADA getEstadoPesaje () {return estadoPesaje ;}
 

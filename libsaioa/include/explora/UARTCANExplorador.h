@@ -22,11 +22,13 @@ public:
   UARTCANExplorador(vector<Enlace*> e, Puerto* p,string file) ;
 	virtual ~UARTCANExplorador();
 	int Explora ();
-	int SendData (int lenght ,unsigned short * data, char * body);
+	int SendData (int lenght ,unsigned short *datasize,unsigned short * data, char * iqanobj);
 	IQANEnlace* GetIQANEnlace () {return  enlace;}
 private:
+//	void ActualizaEstadoCom(int res);
 	void ResetBuffers ();
 	int SendResetRequest ();
+	int SendConfRequest ();
 	int SendRemoteRequest ();
 	int Configura();
 	void LanzarExplorador();
@@ -36,8 +38,9 @@ private:
 	Config* cfg;
   char bufferTX[256];
   char bufferRX[256];
-  int  lTX = 0;
-  int  lRX = 0;
+  int  lTX ;
+  int  lRX ;
+  bool isFalloCom ;
 
   IQANEnlace* enlace ;
 };

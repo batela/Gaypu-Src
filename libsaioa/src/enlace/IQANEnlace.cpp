@@ -24,6 +24,7 @@ namespace container {
   void IQANEnlace::Configure (string a){
     log.debug("%s: %s %s",__FILE__, "Using config file: ", a.data());
     cfg = NULL;
+    thread_mutex = PTHREAD_MUTEX_INITIALIZER;
     if (ConfigReadFile(a.c_str(), &cfg) != CONFIG_OK) {
       log.error("%s: %s %s",__FILE__, "Error leyendo fichero de confguracion: ", a.data());
       cfg = NULL;
@@ -73,9 +74,10 @@ namespace container {
         this->locks.SetLock04(1);
 
         log.debug("%s: %s %s %d %d %d %d ",__FILE__, "Valor recibido de IQAN: " , datos, this->GetLocks()->GetLock01(),this->GetLocks()->GetLock02(),this->GetLocks()->GetLock03(),this->GetLocks()->GetLock04());
-
+        res = 0 ;
       break;
       case '!':
+        (strstr(msj,"OK") != NULL)? res = 0 : res = -1 ;
       break;
     }
     return res;
@@ -86,6 +88,32 @@ namespace container {
 
     return &(this->locks);
   }
+
+  /**
+   *
+   */
+  int IQANEnlace::CreateCANConfRequest(char * data)
+  {
+    pthread_mutex_lock( &thread_mutex );
+    log.debug("%s: %s",__FILE__, "Inicio CreateCANConfRequest");
+
+    char msj[100];
+    char C0,C1;
+
+    memset(msj,0,100);
+    sprintf (msj,"P526050000000000000000010000000000000000");
+
+    printf ("<<<<<<<<<< :%s: %d\n",msj,strlen(msj));
+    this->CalculateCHK(40,msj,C0,C1);
+    sprintf (data,"%s%c%c%c",msj,C0,C1,0x0d);
+
+    printf ("<<<<<<<<<< :%s: \n",data);
+
+    log.debug("%s: %s",__FILE__, "Fin CreateCANConfRequest");
+    pthread_mutex_unlock( &thread_mutex );
+    return (strlen (data));
+  }
+
   /**
    *
    */
@@ -98,7 +126,7 @@ namespace container {
     memset(msj,0,100);
     char codigo[20];
 
-    ConfigReadString(cfg,"spreader","iqanaddres",codigo,20,NULL);
+    ConfigReadString(cfg,"spreader","iqanaddres",codigo,20,"");
     //sprintf (msj,"S%s0",codigo);
     sprintf (msj,"S06A0",codigo);
     printf ("codigo****** %s\n",msj);
@@ -113,15 +141,23 @@ namespace container {
   /**
    *
    */
-  void IQANEnlace::SendRecStandardCanFrame(int id, int lenght ,char * data, char * msj)
+  int IQANEnlace::SendRecStandardCanFrame(int id, int lenght ,unsigned short *datasize, unsigned short * data, char * msj)
   {
     pthread_mutex_lock( &thread_mutex );
-    log.debug("%s: %s",__FILE__, "Inicio SendRecStandardCanFrame");
-
-    sprintf (msj,"t%03X%c\n",id,lenght);
+    log.debug("%s: %s %03X:%d",__FILE__, "Inicio SendRecStandardCanFrame: codigo:longitud", id, lenght);
+    char C0, C1;
+    int longi;
+    char aux[100];
+    memset (msj,0,100);
+    longi = CreateDataFrame(lenght ,datasize,data,aux);
+    sprintf (msj,"s%03X%d%s",id,longi,aux);
+    int longtrama = strlen (msj);
+    CalculateCHK(longtrama,msj,C0,C1);
+    sprintf (&msj[longtrama],"%c%c%c",C0,C1,0x0d);
 
     log.debug("%s: %s",__FILE__, "Fin SendRecStandardCanFrame");
     pthread_mutex_unlock( &thread_mutex );
+    return (strlen(msj));
   }
 
   int IQANEnlace::CreateCanConfigurationFrame(int bauds , int T0, int F0, int M0, int T1, int F1, int M1, char * data)
@@ -141,34 +177,40 @@ namespace container {
     return strlen (data);
   }
 
-  int IQANEnlace::CreateDataFrame(int lenght ,unsigned short * data, char * body)
+  int IQANEnlace::CreateDataFrame(int lenght , unsigned short *datasize, unsigned short * data, char * body)
   {
 
-    log.debug("%s: %s",__FILE__, "CreateDataFrame");
+    log.debug("%s: %s %d",__FILE__, "CreateDataFrame: longitud" ,lenght);
 
     int l = 0 ;
     for (int i = 0 ; i< lenght; i++){
-      if (data[i] > 255) {
+      if (datasize[i]== 2){
         sprintf (&body[l],"%02X%02X", data[i] & 0xff, ((data[i]>>8) & 0xff) );
-        l=+2;
+        l+= 4 * sizeof(char);
       }
-      else {
-        sprintf (&body[l],"%02X",data[i]);
-        l=+1;
+      else if (datasize[i]==1){
+        sprintf (&body[l],"%02X", data[i] & 0xff);
+        l+= 2 * sizeof(char);
       }
+
     }
     log.debug("%s: %s",__FILE__, "CreateDataFrame");
-    return l;
+    return (l/2); //Cada uno de los datos, un byte dos chars
   }
 
   void IQANEnlace::CalculateCHK(int l, char *d , char &C0, char &C1)
   {
     int total= 0;
-      for(int i = 0;i < l; i++)
-      total += (char)d[i];
 
-      sprintf (&C0,"%1X",((total & 0xf0) >> 4));
-      sprintf (&C1,"%1X",(total & 0x0f));
+    for(int i = 0;i < l; i++) total += d[i];
+
+    char c0[2] ;
+    char c1[2] ;
+    sprintf (c0,"%1X",((total & 0xf0) >> 4));
+    sprintf (c1,"%1X",(total & 0x0f));
+
+    C0=c0[0];
+    C1=c1[0];
   }
 
 

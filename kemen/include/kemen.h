@@ -26,6 +26,7 @@
 #include "MODBUSExplorador.h"
 #include "DBPesaje.h"
 #include "DX80Enlace.h"
+#include "IBERCOMPEnlace.h"
 
 using namespace std;
 using namespace container;

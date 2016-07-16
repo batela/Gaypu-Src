@@ -31,6 +31,8 @@ public:
 	void GetUltimaActualizacion(time_t ultimaActualizacion) {		this->ultimaActualizacion = ultimaActualizacion;	}
 	void SetEstable (bool a) 	{isEstable = a;};
 	bool GetEstable () 				{return isEstable ;};
+	bool GetIsFalloCom ()        {return isFalloCom ;};
+	void SetIsFalloCom (int a)        {isFalloCom = a ;};
 private:
 	int peso;
 	char signo;
@@ -46,6 +48,7 @@ private:
 	int isIOg5;
 	int isIOg6;
 	int isIOg7;
+	int isFalloCom;
 
 
 	time_t ultimaActualizacion;

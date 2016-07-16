@@ -37,8 +37,10 @@ public:
 	void getDBHistoricData(string startdate, string enddate,string &data);
 	void getLastData(string &data);
 	void getLastTenData(string &data);
-	void setCodigoPesaje(string &data);
+	void setCodigoPesaje(string data,string &out);
 	void getGraficaData(string &data);
+	void getValoresCalibrado(string &data);
+	void setValoresCalibrado(string tipo, string valor,string &data);
 	void reiniciar();
 
 private:

@@ -29,7 +29,7 @@ namespace container {
 	}
 	int MODBUSPuerto::setAddress(int a)
 	{
-	  log.debug("%s: %s %s",__FILE__, "Configured ModBUS address");
+	  log.debug("%s: %s %d",__FILE__, "Configured ModBUS address",a);
 	  errno = 0;
 	  modbus_set_slave(ctx, a);
 	  if (errno != 0) log.debug("%s: %s %s",__FILE__, "Set timeout error",modbus_strerror(errno));

@@ -9,6 +9,7 @@
 #define DBPESAJE_H_
 
 #include "../include/DB.h"
+#include <unistd.h>
 
 namespace container {
 

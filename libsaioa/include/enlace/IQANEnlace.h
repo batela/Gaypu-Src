@@ -24,15 +24,18 @@ namespace container {
 
     void Configure (string a);
 
-    void SendRecStandardCanFrame(int id, int lenght ,char * data, char * msj);
+    int  SendRecStandardCanFrame(int id, int lenght ,unsigned short *datasize, unsigned short *data, char * msj);
     int  CreateCanConfigurationFrame(int bauds , int T0, int F0, int M0, int T1, int F1, int M1, char * data);
     int  CreateSetRemoteRequest(char * data);
+    int  CreateCANConfRequest(char * data);
     Locks * GetLocks() ;
+
   private:
-      Locks locks;
-      pthread_mutex_t thread_mutex;
-      int CreateDataFrame(int lenght ,unsigned short * data, char * body);
-      void CalculateCHK(int l, char *d , char &C0, char &C1);
+    Locks locks;
+    pthread_mutex_t thread_mutex;
+    int CreateDataFrame(int lenght ,unsigned short *datasize,unsigned short * data, char * body);
+    void CalculateCHK(int l, char *d , char &C0, char &C1);
+
   };
 
 } /* namespace container */

@@ -7,24 +7,17 @@
 
 #include "../include/ControladorPesajeIO.h"
 
+extern DX80Enlace *dx80;
 namespace container {
+
   extern log4cpp::Category &log;
   /**
    *
    */
   void * identificaPesada (void * a){
 
-    int pesajesOK   = 20;
-    int pesajes     = 0 ;
-    int estadoPesaje= 0 ;
-    int isInestable = 5;
-
-    float slope = 0;
-    float avgY= 0;
-
     ControladorPesajeIO *cpd =  (ControladorPesajeIO*) a;
     UARTCANExplorador* ex = (UARTCANExplorador*) cpd->explorador;
-//    IQANEnlace * io = (IQANEnlace *) ex->GetIQANEnlace();
     IQANEnlace * io = cpd->enlace;
     BSCLEnlace *basc =  (BSCLEnlace *) cpd->bascula;
 
@@ -49,8 +42,13 @@ namespace container {
     ioSubir  = atoi(Env::getInstance()->GetValue("iomandosubir").data());
 
     pthread_yield();
+    int ciclo = 0;
     while (cpd->seguir == true){
-      //log.debug("%s: %s",__FILE__, "Lanzando lectura de módulo IO");
+
+      // Se actualiza el IQAN cada 10 ciclos de lectura ojo con los tiempos
+      if (ciclo++ == 0)      cpd->actualizaRemoto();
+      else if (ciclo++ > 10) ciclo = 0;
+
       if (ex->Explora() == 0){
         isCarro = io->GetLocks()->GetLock(ioCarro);
         isPalpa = io->GetLocks()->GetLock(ioPalpa);
@@ -59,7 +57,7 @@ namespace container {
 
         log.info("%s: %s: %d-%d-%d-%d",__FILE__, "Leido: ", isCarro, isPalpa,isTwisl,isSubir);
         //log.info("%s: %s: %d-%d-%d-%d-%d-%d-%d-%d",__FILE__, "IO en Grua: ", isIOg0, isIOg1, isIOg2, isIOg3, isIOg4, isIOg5, isIOg6, isIOg7);
-
+        basc->getBSCL()->SetIsFalloCom(io->GetIsFalloCom());
         basc->getBSCL()->SetIO(isCarro,isPalpa,isTwisl,isSubir);
         basc->getBSCL()->SetGruaIO(0, 0, 0, 0, 0, 0, 0, 0); // No se usa pero pongo a 0 por defecto.
 
@@ -129,6 +127,44 @@ namespace container {
     if (res != 0) {
       log.error("%s: %s", __FILE__,"Couldn't retrieve real-time scheduling paramers");
     }
+  }
+  /**
+   *
+   */
+  void ControladorPesajeIO::actualizaRemoto()
+  {
+    unsigned short data[4];
+    unsigned short datasize[4];
+    bool isFijo = dx80->getDX()->getIsFijo();
+
+    static int turno = 1;
+
+
+    printf ("\n\n\n\n***************************\n\n\n\n");
+    printf ("\n\n\n\n***** ActualizaRemoto *****\n\n\n\n");
+    printf ("\n\n\n\n*****   %d %d %d %d  *****\n\n\n\n",data[0],data[1],data[2],data[3]);
+    printf ("\n\n\n\n***************************\n\n\n\n");
+
+
+    if (turno == 1){
+      data[0] = dx80->getDX()->getPeso();
+      if ( isFijo==true ) data[1] = data[0];
+      else data[1] = 0 ;
+      data[2] = dx80->getDX()->getCMX();
+      data[3] = dx80->getDX()->getCMY();
+      datasize[0] = datasize[1] = 2;
+      datasize[2] = datasize[3] = 1 ;
+      this->explorador->SendData(4,datasize,data,"obj1");
+    }
+    else {
+      data[0] = dx80->getDX()->getInput2Peso();
+      data[1] = dx80->getDX()->getInput1Peso();
+      data[2] = dx80->getDX()->getInput4Peso();
+      data[3] = dx80->getDX()->getInput3Peso();
+      datasize[0] = datasize[1] = datasize[2] = datasize[3] = 2 ;
+      this->explorador->SendData(4,datasize,data,"obj2");
+    }
+    turno = turno * (-1);
   }
 
 } /* namespace container */
